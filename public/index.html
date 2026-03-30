@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OG Preview — Open Graph Analyzer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #232736;
+      --border: #2e3345;
+      --text: #e4e6ed;
+      --text-dim: #8b8fa3;
+      --accent: #6c5ce7;
+      --accent-light: #a29bfe;
+      --green: #00d68f;
+      --yellow: #ffcb47;
+      --red: #ff6b6b;
+      --blue: #4fc3f7;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    .container { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+
+    header {
+      text-align: center;
+      padding: 40px 0 32px;
+    }
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent-light), var(--blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    header p { color: var(--text-dim); margin-top: 8px; font-size: 0.95rem; }
+
+    .search-box {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+    .search-box input {
+      flex: 1;
+      padding: 14px 18px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-box input:focus { border-color: var(--accent); }
+    .search-box input::placeholder { color: var(--text-dim); }
+
+    .btn {
+      padding: 14px 28px;
+      border: none;
+      border-radius: var(--radius);
+      background: var(--accent);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-dim);
+      display: none;
+    }
+    .loading.active { display: block; }
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-msg {
+      background: rgba(255,107,107,0.1);
+      border: 1px solid var(--red);
+      color: var(--red);
+      padding: 14px 18px;
+      border-radius: var(--radius);
+      margin-bottom: 24px;
+      display: none;
+    }
+    .error-msg.active { display: block; }
+
+    .results { display: none; }
+    .results.active { display: block; }
+
+    /* Score */
+    .score-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .score-number {
+      font-size: 3.5rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .score-label { color: var(--text-dim); margin-top: 4px; font-size: 0.9rem; }
+    .score-green { color: var(--green); }
+    .score-yellow { color: var(--yellow); }
+    .score-red { color: var(--red); }
+
+    /* Preview Cards */
+    .previews {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    @media (min-width: 700px) {
+      .previews { grid-template-columns: 1fr 1fr; }
+      .previews .preview-card:first-child { grid-column: 1 / -1; }
+    }
+
+    .preview-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .preview-card .card-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .preview-card .card-body { padding: 0; }
+
+    .social-preview {
+      background: #242526;
+      border-radius: 8px;
+      margin: 16px;
+      overflow: hidden;
+      border: 1px solid #3a3b3c;
+    }
+    .social-preview .sp-image {
+      width: 100%;
+      aspect-ratio: 1.91 / 1;
+      background: #1a1a1a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #666;
+      font-size: 0.85rem;
+      overflow: hidden;
+    }
+    .social-preview .sp-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .social-preview .sp-content { padding: 12px 16px; }
+    .social-preview .sp-domain {
+      font-size: 0.75rem;
+      color: #b0b3b8;
+      text-transform: uppercase;
+    }
+    .social-preview .sp-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #e4e6eb;
+      margin: 4px 0;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .social-preview .sp-desc {
+      font-size: 0.8rem;
+      color: #b0b3b8;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* Twitter style */
+    .twitter-preview {
+      background: #000;
+      border: 1px solid #2f3336;
+    }
+    .twitter-preview .sp-domain { color: #71767b; }
+    .twitter-preview .sp-title { color: #e7e9ea; }
+    .twitter-preview .sp-desc { color: #71767b; }
+
+    /* LinkedIn style */
+    .linkedin-preview {
+      background: #1b1f23;
+      border: 1px solid #38434f;
+    }
+    .linkedin-preview .sp-domain { color: rgba(255,255,255,0.6); }
+    .linkedin-preview .sp-title { color: rgba(255,255,255,0.9); }
+    .linkedin-preview .sp-desc { color: rgba(255,255,255,0.6); }
+
+    /* Tags Table */
+    .tags-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+    .tags-section .section-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .tag-toggle {
+      font-size: 0.8rem;
+      color: var(--accent-light);
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-weight: 500;
+    }
+
+    .tags-table { width: 100%; }
+    .tags-table tr { border-bottom: 1px solid var(--border); }
+    .tags-table tr:last-child { border-bottom: none; }
+    .tags-table td {
+      padding: 10px 20px;
+      font-size: 0.85rem;
+      vertical-align: top;
+    }
+    .tags-table .tag-name {
+      color: var(--accent-light);
+      font-family: 'SF Mono', Monaco, monospace;
+      white-space: nowrap;
+      width: 200px;
+    }
+    .tags-table .tag-value { color: var(--text); word-break: break-all; }
+    .tags-table .tag-status { width: 24px; text-align: center; }
+
+    .dot-green { color: var(--green); }
+    .dot-yellow { color: var(--yellow); }
+    .dot-red { color: var(--red); }
+    .dot-gray { color: var(--text-dim); }
+
+    .missing-label {
+      font-style: italic;
+      font-size: 0.8rem;
+    }
+
+    footer {
+      text-align: center;
+      padding: 32px 0;
+      color: var(--text-dim);
+      font-size: 0.8rem;
+    }
+    footer a { color: var(--accent-light); text-decoration: none; }
+
+    @media (max-width: 600px) {
+      header h1 { font-size: 1.5rem; }
+      .search-box { flex-direction: column; }
+      .btn { width: 100%; }
+      .tags-table .tag-name { width: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>OG Preview</h1>
+      <p>Analyze Open Graph tags and preview how your links appear on social media</p>
+    </header>
+
+    <div class="search-box">
+      <input type="url" id="urlInput" placeholder="https://example.com" autofocus>
+      <button class="btn" id="analyzeBtn" onclick="analyze()">Analyze</button>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Fetching and analyzing...</p>
+    </div>
+
+    <div class="results" id="results">
+      <!-- Score -->
+      <div class="score-card">
+        <div class="score-number" id="scoreNumber">0</div>
+        <div class="score-label">OG Completeness Score out of 100</div>
+        <div id="scoreSummary" style="margin-top:8px;font-size:0.85rem;color:var(--text-dim)"></div>
+      </div>
+
+      <!-- Previews -->
+      <div class="previews">
+        <div class="preview-card">
+          <div class="card-header">Facebook</div>
+          <div class="card-body">
+            <div class="social-preview" id="fbPreview"></div>
+          </div>
+        </div>
+        <div class="preview-card">
+          <div class="card-header">Twitter / X</div>
+          <div class="card-body">
+            <div class="social-preview twitter-preview" id="twPreview"></div>
+          </div>
+        </div>
+        <div class="preview-card">
+          <div class="card-header">LinkedIn</div>
+          <div class="card-body">
+            <div class="social-preview linkedin-preview" id="liPreview"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OG Tags Table -->
+      <div class="tags-section">
+        <div class="section-header">
+          <span>Open Graph Tags</span>
+        </div>
+        <table class="tags-table" id="ogTable"></table>
+      </div>
+
+      <!-- All Meta Tags -->
+      <div class="tags-section">
+        <div class="section-header">
+          <span>All Meta Tags (<span id="metaCount">0</span>)</span>
+          <button class="tag-toggle" id="toggleAll" onclick="toggleAllMeta()">Show all</button>
+        </div>
+        <table class="tags-table" id="allMetaTable" style="display:none"></table>
+      </div>
+    </div>
+
+    <footer>
+      Built by <a href="https://zakaria-kone.com" target="_blank">Zakaria Kone</a> &mdash; og-preview v1.0.0
+    </footer>
+  </div>
+
+  <script>
+    const OG_TAGS = [
+      'og:title','og:description','og:image','og:url','og:type','og:site_name',
+      'og:locale','og:image:width','og:image:height','og:image:alt',
+      'twitter:card','twitter:title','twitter:description','twitter:image',
+      'twitter:site','twitter:creator'
+    ];
+    const CRITICAL = new Set(['og:title','og:description','og:image']);
+    const RECOMMENDED = new Set(['og:url','og:type','og:site_name','twitter:card','twitter:title','twitter:description','twitter:image']);
+
+    const $id = id => document.getElementById(id);
+    let allMetaVisible = false;
+
+    $id('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') analyze(); });
+
+    async function analyze() {
+      const url = $id('urlInput').value.trim();
+      if (!url) return;
+
+      $id('results').classList.remove('active');
+      $id('errorMsg').classList.remove('active');
+      $id('loading').classList.add('active');
+      $id('analyzeBtn').disabled = true;
+
+      try {
+        const fullUrl = url.startsWith('http') ? url : 'https://' + url;
+        const res = await fetch('/api/analyze?url=' + encodeURIComponent(fullUrl));
+        const data = await res.json();
+
+        if (data.error) throw new Error(data.error);
+
+        $id('loading').classList.remove('active');
+        renderResults(data);
+        $id('results').classList.add('active');
+      } catch (err) {
+        $id('loading').classList.remove('active');
+        $id('errorMsg').textContent = err.message;
+        $id('errorMsg').classList.add('active');
+      } finally {
+        $id('analyzeBtn').disabled = false;
+      }
+    }
+
+    function renderResults(data) {
+      const { ogData, allMeta, score, pageTitle } = data;
+
+      // Score
+      const sn = $id('scoreNumber');
+      sn.textContent = score.score;
+      sn.className = 'score-number ' + (score.score >= 80 ? 'score-green' : score.score >= 50 ? 'score-yellow' : 'score-red');
+
+      let summary = [];
+      if (score.critical.length) summary.push('<span style="color:var(--red)">' + score.critical.length + ' critical missing</span>');
+      if (score.recommended.length) summary.push('<span style="color:var(--yellow)">' + score.recommended.length + ' recommended missing</span>');
+      summary.push(score.present.length + '/' + (score.present.length + score.missing.length) + ' tags found');
+      $id('scoreSummary').innerHTML = summary.join(' &bull; ');
+
+      // Social previews
+      const title = ogData['og:title'] || pageTitle || 'No title';
+      const desc = ogData['og:description'] || '';
+      const image = ogData['og:image'] || '';
+      const siteName = ogData['og:site_name'] || '';
+      const ogUrl = ogData['og:url'] || data.url;
+      const domain = extractDomain(ogUrl);
+
+      const tTitle = ogData['twitter:title'] || title;
+      const tDesc = ogData['twitter:description'] || desc;
+      const tImage = ogData['twitter:image'] || image;
+
+      $id('fbPreview').innerHTML = buildSocialCard(image, siteName || domain, title, desc);
+      $id('twPreview').innerHTML = buildSocialCard(tImage, domain, tTitle, tDesc);
+      $id('liPreview').innerHTML = buildSocialCard(image, domain, title, '');
+
+      // OG Table
+      let ogHtml = '';
+      for (const tag of OG_TAGS) {
+        const val = ogData[tag];
+        let dot, valHtml;
+        if (val && val.trim()) {
+          dot = '<span class="dot-green">&#9679;</span>';
+          valHtml = escHtml(val);
+        } else if (CRITICAL.has(tag)) {
+          dot = '<span class="dot-red">&#9679;</span>';
+          valHtml = '<span class="missing-label dot-red">Missing (critical)</span>';
+        } else if (RECOMMENDED.has(tag)) {
+          dot = '<span class="dot-yellow">&#9679;</span>';
+          valHtml = '<span class="missing-label dot-yellow">Missing (recommended)</span>';
+        } else {
+          dot = '<span class="dot-gray">&#9679;</span>';
+          valHtml = '<span class="missing-label dot-gray">Not set</span>';
+        }
+        ogHtml += '<tr><td class="tag-status">' + dot + '</td><td class="tag-name">' + escHtml(tag) + '</td><td class="tag-value">' + valHtml + '</td></tr>';
+      }
+      $id('ogTable').innerHTML = ogHtml;
+
+      // All meta
+      $id('metaCount').textContent = allMeta.length;
+      let metaHtml = '';
+      for (const m of allMeta) {
+        metaHtml += '<tr><td class="tag-status"><span class="dot-gray">&#9679;</span></td><td class="tag-name">' + escHtml(m.property) + '</td><td class="tag-value">' + escHtml(m.content) + '</td></tr>';
+      }
+      $id('allMetaTable').innerHTML = metaHtml;
+    }
+
+    function buildSocialCard(image, domain, title, desc) {
+      let html = '';
+      if (image) {
+        html += '<div class="sp-image"><img src="' + escAttr(image) + '" onerror="this.parentElement.textContent=\'Image failed to load\'" alt=""></div>';
+      } else {
+        html += '<div class="sp-image">No og:image set</div>';
+      }
+      html += '<div class="sp-content">';
+      html += '<div class="sp-domain">' + escHtml(domain) + '</div>';
+      html += '<div class="sp-title">' + escHtml(title) + '</div>';
+      if (desc) html += '<div class="sp-desc">' + escHtml(desc) + '</div>';
+      html += '</div>';
+      return html;
+    }
+
+    function toggleAllMeta() {
+      allMetaVisible = !allMetaVisible;
+      $id('allMetaTable').style.display = allMetaVisible ? 'table' : 'none';
+      $id('toggleAll').textContent = allMetaVisible ? 'Hide' : 'Show all';
+    }
+
+    function extractDomain(url) {
+      try { return new URL(url).hostname; } catch { return url; }
+    }
+
+    function escHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function escAttr(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+  </script>
+</body>
+</html>
